@@ -1,164 +1,89 @@
-const ROWS = 15;
-const COLS = 15;
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const sendBtn = document.getElementById('send-btn');
 
-// boardState: 2D array representing the board
-// 0 = empty, 1 = black, 2 = white
-let boardState = [];
-let currentPlayer = 1; // 1 represents black, 2 represents white
-let isGameOver = false;
-let lastMoveCell = null;
+// Example responses mimicking an AI
+const botResponses = [
+    "這是一個十分有趣的觀點！",
+    "您的意思是？可以再多說明一點嗎？",
+    "我了解了。身為 AI 助理，我隨時為您服務。",
+    "太棒了！還有什麼我可以協助您的嗎？",
+    "這是個好問題，讓我想想...",
+    "我目前還在學習中，不過我會盡力回答您的問題！",
+    "Initial chatbot version 已經成功上線啦！"
+];
 
-// DOM Elements
-const boardEl = document.getElementById('board');
-const statusTextEl = document.getElementById('status-text');
-const restartBtn = document.getElementById('restart-btn');
+// Send message event listeners
+sendBtn.addEventListener('click', handleSend);
+chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        handleSend();
+    }
+});
 
-/**
- * Initialize or restart the game
- */
-function initGame() {
-    // Create 15x15 empty grid
-    boardState = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-    currentPlayer = 1;
-    isGameOver = false;
-    lastMoveCell = null;
-    
-    updateStatusText();
-    boardEl.className = 'board turn-black';
-    renderBoard();
+function handleSend() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    // 1. Add User Message
+    addMessage(text, 'user');
+    chatInput.value = '';
+
+    // 2. Show Typing Indicator
+    showTypingIndicator();
+
+    // 3. Mock Bot Response after a delay
+    setTimeout(() => {
+        removeTypingIndicator();
+        const randomIndex = Math.floor(Math.random() * botResponses.length);
+        const replyText = text.toLowerCase().includes('commit') 
+            ? "太好了，現在您可以成功執行 git commit 了！" 
+            : botResponses[randomIndex];
+        addMessage(replyText, 'bot');
+    }, 1200 + Math.random() * 1000); // random delay between 1.2s and 2.2s
 }
 
-/**
- * Render the entire board to the DOM
- */
-function renderBoard() {
-    boardEl.innerHTML = '';
+function addMessage(text, sender) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender}-message`;
     
-    // Standard star points for a 15x15 board
-    const starPoints = [
-        [3, 3], [3, 11], [7, 7], [11, 3], [11, 11]
-    ];
+    const bubbleDiv = document.createElement('div');
+    bubbleDiv.className = 'bubble';
+    bubbleDiv.textContent = text;
     
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.dataset.row = r;
-            cell.dataset.col = c;
-            
-            // Render star points if matching coordinates
-            const isStar = starPoints.some(p => p[0] === r && p[1] === c);
-            if (isStar) {
-                const starDot = document.createElement('div');
-                starDot.className = 'star-dot';
-                cell.appendChild(starDot);
-            }
-            
-            // Add a ghost piece for hover effect
-            const ghost = document.createElement('div');
-            ghost.className = 'ghost-piece';
-            cell.appendChild(ghost);
+    messageDiv.appendChild(bubbleDiv);
+    chatMessages.appendChild(messageDiv);
+    
+    scrollToBottom();
+}
 
-            // Add click event for placing a piece
-            cell.addEventListener('click', () => handleMove(r, c));
-            boardEl.appendChild(cell);
-        }
+function showTypingIndicator() {
+    const indicatorDiv = document.createElement('div');
+    indicatorDiv.className = 'message bot-message typing-indicator-container';
+    indicatorDiv.id = 'typing-indicator';
+    
+    const bubbleDiv = document.createElement('div');
+    bubbleDiv.className = 'bubble typing-indicator';
+    
+    // Add 3 bouncing dots
+    for (let i = 0; i < 3; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'typing-dot';
+        bubbleDiv.appendChild(dot);
+    }
+    
+    indicatorDiv.appendChild(bubbleDiv);
+    chatMessages.appendChild(indicatorDiv);
+    scrollToBottom();
+}
+
+function removeTypingIndicator() {
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) {
+        indicator.remove();
     }
 }
 
-/**
- * Handle player move at coordinates (r, c)
- */
-function handleMove(r, c) {
-    if (isGameOver || boardState[r][c] !== 0) return;
-
-    // 1. Update logic state
-    boardState[r][c] = currentPlayer;
-    
-    // 2. Update UI
-    const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-    cell.classList.add('has-piece');
-    
-    // Remove the ghost piece to prevent overlapping
-    const ghost = cell.querySelector('.ghost-piece');
-    if (ghost) ghost.remove();
-
-    // Clear last-move indicator from previous move
-    if (lastMoveCell) {
-        const prevPiece = lastMoveCell.querySelector('.piece');
-        if (prevPiece) prevPiece.classList.remove('last-move');
-    }
-
-    // Place the new piece
-    const piece = document.createElement('div');
-    piece.className = `piece ${currentPlayer === 1 ? 'black' : 'white'} last-move`;
-    cell.appendChild(piece);
-    lastMoveCell = cell;
-
-    // 3. Check win condition
-    if (checkWin(r, c, currentPlayer)) {
-        isGameOver = true;
-        const winnerColor = currentPlayer === 1 ? '黑子' : '白子';
-        statusTextEl.innerHTML = `<span class="${currentPlayer === 1 ? 'black-win' : 'white-win'}">遊戲結束！${winnerColor}獲勝！</span>`;
-        boardEl.className = 'board'; // remove hover styles
-        
-        // Small delay so piece renders before alert blocks the thread
-        setTimeout(() => alert(`${winnerColor} 獲勝！`), 50);
-        return;
-    }
-
-    // 4. Switch player
-    currentPlayer = currentPlayer === 1 ? 2 : 1;
-    updateStatusText();
-    boardEl.className = `board ${currentPlayer === 1 ? 'turn-black' : 'turn-white'}`;
+function scrollToBottom() {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 }
-
-/**
- * Update the text showing whose turn it is
- */
-function updateStatusText() {
-    if (isGameOver) return;
-    const playerColor = currentPlayer === 1 ? '黑子' : '白子';
-    const playerClass = currentPlayer === 1 ? 'black-turn' : 'white-turn';
-    statusTextEl.innerHTML = `目前輪到：<span class="${playerClass}">${playerColor}</span>`;
-}
-
-/**
- * Check if the recent move caused a win
- */
-function checkWin(r, c, player) {
-    // 4 directions: Horizontal, Vertical, Diagonal (\), Diagonal (/)
-    const directions = [
-        [[0, 1], [0, -1]], 
-        [[1, 0], [-1, 0]], 
-        [[1, 1], [-1, -1]],
-        [[1, -1], [-1, 1]] 
-    ];
-
-    for (let axis of directions) {
-        let count = 1; // start with the piece just placed
-        
-        for (let dir of axis) {
-            let nr = r + dir[0];
-            let nc = c + dir[1];
-            
-            // Keep walking in this direction while we see the player's pieces
-            while (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && boardState[nr][nc] === player) {
-                count++;
-                nr += dir[0];
-                nc += dir[1];
-            }
-        }
-        
-        if (count >= 5) {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Event Listeners
-restartBtn.addEventListener('click', initGame);
-
-// Start game
-initGame();
